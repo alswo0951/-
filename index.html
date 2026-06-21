@@ -89,7 +89,7 @@
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">복사 데이터 붙여넣기 영역</span>
             <span id="import-stats" class="text-xs text-indigo-600 font-bold">0개 항목 대기 중</span>
           </div>
-          <textarea id="wms-bulk-textarea" oninput="parseWMSTextarea()" class="w-full flex-1 min-h-[300px] bg-slate-900 text-emerald-400 font-mono text-xs p-5 rounded-2xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="WMS 재고 데이터를 복사하여 이곳에 붙여넣어 주세요... (헤더 행을 포함하여 붙여넣으면 더욱 정확합니다)"></textarea>
+          <textarea id="wms-bulk-textarea" oninput="debouncedParseWMS()" class="w-full flex-1 min-h-[300px] bg-slate-900 text-emerald-400 font-mono text-xs p-5 rounded-2xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="WMS 재고 데이터를 복사하여 이곳에 붙여넣어 주세요... (헤더 행을 포함하여 붙여넣으면 더욱 정확합니다)"></textarea>
         </div>
       </div>
 
@@ -108,7 +108,7 @@
         <div class="overflow-x-auto max-h-[400px]">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0">
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10">
                 <th class="py-3 px-6 w-44">바코드</th>
                 <th class="py-3 px-6">보관 품목명</th>
                 <th class="py-3 px-6 w-32">가용재고 (PLT)</th>
@@ -333,6 +333,7 @@
     let parsedInventoryList = JSON.parse(localStorage.getItem('wms_parsed_inventory')) || [];
     let warehouseData = JSON.parse(localStorage.getItem('wms_v3_5_warehouse_data')) || [...initialLocationMaster];
     let selectedLocForEdit = null;
+    let parseTimeout = null;
 
     window.onload = function() {
       lucide.createIcons();
@@ -356,11 +357,20 @@
       document.getElementById(`tab-${tabId}-btn`).classList.remove('text-slate-500');
     }
 
-    // 2. WMS 복사 영역 실시간 감지 파싱 시스템
+    // 디바운스 파서 (텍스트 입력 시 레이턴시 제어 목적)
+    function debouncedParseWMS() {
+      clearTimeout(parseTimeout);
+      document.getElementById('import-stats').innerText = "분석 진행 대기 중...";
+      parseTimeout = setTimeout(parseWMSTextarea, 300);
+    }
+
+    // 2. WMS 복사 영역 실시간 감지 파싱 시스템 (최적화 성능 개선 버전)
     function parseWMSTextarea() {
       const text = document.getElementById('wms-bulk-textarea').value;
       if (!text.trim()) {
         document.getElementById('import-stats').innerText = "0개 항목 대기 중";
+        parsedInventoryList = [];
+        renderInventoryListTable();
         return;
       }
 
@@ -415,7 +425,7 @@
       document.getElementById('import-stats').innerText = `${results.length}개 품목 실시간 로드 완료`;
     }
 
-    // 파싱된 실재고 리스트 테이블 렌더링
+    // 파싱된 실재고 리스트 테이블 렌더링 (메모리 버퍼 축적 기법 적용)
     function renderInventoryListTable() {
       const tbody = document.getElementById('inventory-list-rows');
       if (parsedInventoryList.length === 0) {
@@ -431,9 +441,10 @@
         return;
       }
 
-      tbody.innerHTML = '';
+      let html = '';
       parsedInventoryList.forEach((item, index) => {
-        tbody.innerHTML += `
+        // dynamic lucide parser를 피해 인라인 SVG 휴지통 아이콘 사용 (렌더링 속도 향상 목적)
+        html += `
           <tr class="hover:bg-slate-50 transition text-xs">
             <td class="p-3">
               <input type="text" value="${item.barcode}" onchange="updateInventoryItem(${index}, 'barcode', this.value)" class="w-full bg-transparent border border-slate-200 rounded px-2 py-1 font-mono text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
@@ -448,12 +459,14 @@
               <input type="text" value="${item.locations}" placeholder="예: 1B-01-01, 1B-01-02" onchange="updateInventoryItem(${index}, 'locations', this.value)" class="w-full bg-transparent border border-slate-200 rounded px-2 py-1 text-xs text-indigo-600 font-semibold focus:ring-1 focus:ring-indigo-500 outline-none">
             </td>
             <td class="p-3 text-right">
-              <button onclick="removeInventoryItem(${index})" class="text-slate-400 hover:text-red-500 transition px-2 py-1"><i data-lucide="trash" class="w-4 h-4 inline"></i></button>
+              <button onclick="removeInventoryItem(${index})" class="text-slate-400 hover:text-red-500 transition px-2 py-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </button>
             </td>
           </tr>
         `;
       });
-      lucide.createIcons();
+      tbody.innerHTML = html;
     }
 
     // 개별 입력 항목 동기 업데이트
@@ -547,12 +560,30 @@
       showToast("💡 WMS 샘플 원본 데이터 세트가 파싱 테이블에 업로드되었습니다.");
     }
 
-    // 5. 구글 시트형 재고 로케이션 현황 테이블
-    function renderSheetTable() {
+    // 5. 구글 시트형 재고 로케이션 현황 테이블 (In-Memory Filter를 적용하여 렌더링 최적화)
+    function renderSheetTable(filterQuery = "") {
       const tbody = document.getElementById('sheet-table-rows');
-      tbody.innerHTML = '';
+      let html = '';
 
-      warehouseData.forEach(loc => {
+      // DOM에 접근하여 display를 변경하는 대신 메모리 배열 상에서 미리 검색을 마친 후 단 한 번 렌더링
+      const filteredData = warehouseData.filter(loc => {
+        if (!filterQuery) return true;
+        const searchStr = `${loc.id} ${loc.currentProduct} ${loc.barcode}`.toLowerCase();
+        return searchStr.includes(filterQuery);
+      });
+
+      if (filteredData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-12 text-center text-slate-400 text-xs">
+              검색 조건과 매치되는 로케이션이 물류 창고에 존재하지 않습니다.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filteredData.forEach(loc => {
         let badge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">공석</span>`;
         if (loc.currentQty === 1) {
           badge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">일부 적재</span>`;
@@ -560,8 +591,8 @@
           badge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-600 text-white">만석</span>`;
         }
 
-        tbody.innerHTML += `
-          <tr class="hover:bg-slate-50/80 transition text-xs sheet-row" data-search="${loc.id} ${loc.currentProduct} ${loc.barcode}">
+        html += `
+          <tr class="hover:bg-slate-50/80 transition text-xs">
             <td class="py-3 px-6 font-bold text-slate-900">${loc.id}</td>
             <td class="py-3 px-6 text-center"><span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">${loc.targetGrade}존</span></td>
             <td class="py-3 px-6 font-mono text-slate-500">${loc.barcode}</td>
@@ -574,29 +605,22 @@
           </tr>
         `;
       });
+
+      tbody.innerHTML = html;
     }
 
-    // 시트 뷰 내부 데이터 필터링 검색 엔진
+    // 시트 뷰 내부 데이터 필터링 검색 엔진 (DOM 병목 해소형)
     function filterSheetTable() {
       const query = document.getElementById('sheet-search-input').value.toLowerCase().trim();
-      const rows = document.querySelectorAll('.sheet-row');
-
-      rows.forEach(row => {
-        const text = row.getAttribute('data-search').toLowerCase();
-        if (text.includes(query)) {
-          row.style.display = "";
-        } else {
-          row.style.display = "none";
-        }
-      });
+      renderSheetTable(query);
     }
 
-    // 6. 창고 물리 레이아웃 맵 가시화 드로잉
+    // 6. 창고 물리 레이아웃 맵 가시화 드로잉 (누적 렌더링 기법 적용)
     function renderWarehouseMap() {
       const zones = ["1B", "1C", "1D"];
       zones.forEach(zone => {
         const grid = document.getElementById(`grid-zone-${zone}`);
-        grid.innerHTML = '';
+        let html = '';
 
         const zoneLocs = warehouseData.filter(loc => loc.id.startsWith(zone));
         zoneLocs.forEach(loc => {
@@ -611,11 +635,11 @@
             textClass = "text-white";
           }
 
-          grid.innerHTML += `
+          html += `
             <div onclick="openEditModal('${loc.id}')" class="border rounded-xl p-3 cursor-pointer transition transform hover:-translate-y-0.5 flex flex-col justify-between h-24 ${bgClass}">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold tracking-tight">${loc.id}</span>
-                <span class="text-[9px] px-1 py-0.5 rounded bg-white/70 text-slate-800 font-semibold border border-slate-200">
+                <span class="text-[9px] px-1 py-0.5 rounded bg-white/70 text-slate-800 font-semibold border border-slate-100">
                   ${loc.targetGrade}존
                 </span>
               </div>
@@ -626,6 +650,7 @@
             </div>
           `;
         });
+        grid.innerHTML = html;
       });
       lucide.createIcons();
     }
