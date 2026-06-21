@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart WMS v3.0 | 통합 재고 동기화 시스템</title>
+  <title>Smart WMS v3.5 | WMS 대량 재고 동기화 시스템</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -18,30 +18,30 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
-  <!-- 상단 네비게이션 헤더 -->
+  <!-- 상단 헤더 및 탭 메뉴 -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <div class="p-2.5 bg-indigo-600 rounded-xl text-white">
-          <i data-lucide="database" class="w-6 h-6"></i>
+          <i data-lucide="layers" class="w-6 h-6"></i>
         </div>
         <div>
-          <span class="text-lg font-bold text-slate-900 tracking-tight">Smart WMS <span class="text-indigo-600">v3.0</span></span>
-          <span class="text-xs text-slate-400 block -mt-1">실재고 기반 다중 로케이션 매핑 엔진</span>
+          <span class="text-lg font-bold text-slate-900 tracking-tight">Smart WMS <span class="text-indigo-600">v3.5</span></span>
+          <span class="text-xs text-slate-400 block -mt-1">WMS 일괄 복사-붙여넣기 및 자동 할당 엔진</span>
         </div>
       </div>
       
-      <!-- 탭 메뉴 -->
+      <!-- 메인 탭 전환 -->
       <nav class="flex space-x-8">
-        <button onclick="switchTab('import')" id="tab-import-btn" class="py-5 px-1 text-sm font-bold transition active-tab">실재고 대량 복사/붙여넣기</button>
+        <button onclick="switchTab('inventory')" id="tab-inventory-btn" class="py-5 px-1 text-sm font-bold transition active-tab">현재고 관리 (일괄 입력)</button>
         <button onclick="switchTab('sheet')" id="tab-sheet-btn" class="py-5 px-1 text-sm font-bold text-slate-500 hover:text-slate-700 transition">재고 로케이션 현황 (시트 뷰)</button>
         <button onclick="switchTab('map')" id="tab-map-btn" class="py-5 px-1 text-sm font-bold text-slate-500 hover:text-slate-700 transition">창고 레이아웃 맵</button>
       </nav>
 
       <div class="flex items-center space-x-3">
         <button onclick="resetAllData()" class="flex items-center space-x-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition">
-          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          <span>데이터 초기화</span>
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>WMS 전체 초기화</span>
         </button>
       </div>
     </div>
@@ -49,48 +49,82 @@
 
   <main class="max-w-7xl mx-auto px-4 py-8 flex-1 w-full">
 
-    <!-- [TAB 1]: 현재고 대량 등록 (시트 복사 붙여넣기) -->
-    <section id="tab-import" class="tab-content active">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- 가이드 및 설정 영역 -->
+    <!-- [TAB 1]: 현재고 관리 및 대량 복사/붙여넣기 페이지 -->
+    <section id="tab-inventory" class="tab-content active">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <!-- 대량 복사-붙여넣기 패널 -->
         <div class="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
-            <div class="flex items-center space-x-2 text-indigo-600 mb-4">
+            <div class="flex items-center space-x-2 text-indigo-600 mb-3">
               <i data-lucide="clipboard-paste" class="w-5 h-5"></i>
-              <h2 class="text-lg font-bold text-slate-900">시트 대량 동기화</h2>
+              <h2 class="text-lg font-bold text-slate-900">WMS 데이터 일괄 입력</h2>
             </div>
-            <p class="text-xs text-slate-500 leading-relaxed mb-6">
-              구글 시트의 <strong>[실재고]</strong> 시트 전체(헤더 포함)를 드래그하여 복사(<kbd class="px-1 bg-slate-100 border rounded text-[10px]">Ctrl+C</kbd>)한 뒤 오른쪽 영역에 붙여넣기(<kbd class="px-1 bg-slate-100 border rounded text-[10px]">Ctrl+V</kbd>)하세요.
+            <p class="text-xs text-slate-500 leading-relaxed mb-4">
+              엑셀이나 WMS 프로그램의 재고 목록 전체를 드래그 복사(<kbd class="px-1 bg-slate-100 border rounded text-[10px]">Ctrl+C</kbd>)한 뒤, 우측 입력 영역에 붙여넣기(<kbd class="px-1 bg-slate-100 border rounded text-[10px]">Ctrl+V</kbd>) 하세요. 목록이 자동으로 하단 테이블에 즉시 생성됩니다.
             </p>
 
-            <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6">
-              <span class="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">💡 스마트 매핑 매커니즘</span>
-              <ul class="text-[11px] text-indigo-950 space-y-1.5 list-disc pl-3">
-                <li>바코드, 품목명, 가용재고, 다중로케이션 열을 자동으로 찾아냅니다.</li>
-                <li>다중 로케이션이 여러 개일 경우, 가용재고를 <strong>로케이션당 최대 2 PLT씩 순차 분할 배정</strong>합니다.</li>
-              </ul>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-600 mb-4 space-y-2">
+              <span class="block font-bold text-slate-500">📋 지원하는 복사 열 순서 (자동 매핑)</span>
+              <p class="font-mono text-[10px] text-indigo-600">바코드 | 품목명 | 가용재고 | 다중로케이션</p>
+              <span class="block text-[10px] text-slate-400">※ 열의 순서가 달라도 헤더의 이름을 읽어 자동으로 바르게 필드를 찾아내 정렬합니다.</span>
             </div>
 
-            <div class="space-y-2 mb-6">
-              <button onclick="loadSampleSheetData()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition">
-                📋 구글 시트 복사 샘플 데이터 로드
+            <div class="space-y-2">
+              <button onclick="loadSampleWMSData()" class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl transition flex items-center justify-center space-x-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>테스트용 WMS 대량 재고 복사하기</span>
               </button>
             </div>
           </div>
 
-          <button onclick="processBulkPaste()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition shadow-md hover:shadow-lg flex items-center justify-center space-x-2">
-            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-            <span>동기화 및 다중 로케이션 배정 실행</span>
+          <button onclick="syncPastedToLocations()" class="w-full py-4 mt-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition shadow-md hover:shadow-lg flex items-center justify-center space-x-2">
+            <i data-lucide="arrow-right-left" class="w-5 h-5 animate-pulse"></i>
+            <span>로케이션 자동 매핑 & 동기화 실행</span>
           </button>
         </div>
 
-        <!-- 텍스트 붙여넣기 창 -->
+        <!-- 텍스트 붙여넣기 입력창 -->
         <div class="lg:col-span-2 flex flex-col">
           <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">시트 복사 영역 (Ctrl + V)</label>
-            <span id="paste-stats" class="text-xs text-indigo-600 font-bold">0개 품목 대기 중</span>
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">복사 데이터 붙여넣기 영역</span>
+            <span id="import-stats" class="text-xs text-indigo-600 font-bold">0개 항목 대기 중</span>
           </div>
-          <textarea id="bulk-paste-area" class="w-full flex-1 min-h-[450px] bg-slate-900 text-emerald-400 font-mono text-sm p-5 rounded-2xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="구글 시트의 [실재고] 탭 데이터를 드래그 복사해 여기에 붙여넣으세요...&#10;예시:&#10;바코드	품목명	규격	현재고	가용재고	미결수량	다중로케이션&#10;8801234	타이레놀	BOX	10	4	0	1B-01-01, 1B-01-02"></textarea>
+          <textarea id="wms-bulk-textarea" oninput="parseWMSTextarea()" class="w-full flex-1 min-h-[300px] bg-slate-900 text-emerald-400 font-mono text-xs p-5 rounded-2xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="WMS 재고 데이터를 복사하여 이곳에 붙여넣어 주세요... (헤더 행을 포함하여 붙여넣으면 더욱 정확합니다)"></textarea>
+        </div>
+      </div>
+
+      <!-- 파싱된 현재 실재고 편집 리스트 -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">파싱된 현재 실재고 목록</h3>
+            <p class="text-xs text-slate-400">데이터를 붙여넣으면 아래 표가 자동으로 채워집니다. 개별 수정 및 품목 추가도 가능합니다.</p>
+          </div>
+          <button onclick="addNewInventoryRow()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>품목 개별 추가</span>
+          </button>
+        </div>
+        <div class="overflow-x-auto max-h-[400px]">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0">
+                <th class="py-3 px-6 w-44">바코드</th>
+                <th class="py-3 px-6">보관 품목명</th>
+                <th class="py-3 px-6 w-32">가용재고 (PLT)</th>
+                <th class="py-3 px-6">다중로케이션 (콤마구분)</th>
+                <th class="py-3 px-6 w-20 text-right">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-list-rows" class="divide-y divide-slate-100 text-sm">
+              <tr>
+                <td colspan="5" class="py-12 text-center text-slate-400 text-xs">
+                  <i data-lucide="clipboard" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+                  복사한 WMS 데이터를 붙여넣거나 [품목 개별 추가]를 통해 재고 정보를 등록해 주세요.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -99,29 +133,34 @@
     <section id="tab-sheet" class="tab-content">
       <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-bold text-slate-900">재고 로케이션 현황 시트</h2>
-          <p class="text-sm text-slate-500 mt-1">구글 시트의 '재고 로케이션' 구조와 매핑 로직이 실시간 적용된 그리드입니다.</p>
+          <h2 class="text-2xl font-bold text-slate-900">재고 로케이션 종합 현황 시트</h2>
+          <p class="text-sm text-slate-500 mt-1">창고 마스터 로케이션별로 매핑된 최신 재고 분배 현황표입니다.</p>
         </div>
         <div class="flex items-center space-x-2">
-          <button onclick="exportToCSV()" class="flex items-center space-x-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition">
+          <!-- 테이블 간이 검색 필터 -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="sheet-search-input" onkeyup="filterSheetTable()" placeholder="로케이션, 품목명, 바코드 검색..." class="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-sm">
+          </div>
+          <button onclick="exportToCSV()" class="flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition shadow-sm">
             <i data-lucide="download" class="w-4 h-4"></i>
-            <span>구글 시트용 CSV 다운로드</span>
+            <span>구글 시트용 CSV 내보내기</span>
           </button>
         </div>
       </div>
 
-      <!-- 시트 스타일 그리드 테두리 -->
+      <!-- 데이터 그리드 -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto max-h-[600px]">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                <th class="py-3 px-6 w-32">로케이션</th>
-                <th class="py-3 px-6 w-24 text-center">권장등급</th>
+              <tr class="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10">
+                <th class="py-3 px-6 w-36">로케이션 ID</th>
+                <th class="py-3 px-6 w-28 text-center">지정등급</th>
                 <th class="py-3 px-6 w-44">바코드</th>
                 <th class="py-3 px-6">보관 품목명</th>
-                <th class="py-3 px-6 w-32 text-center">가용재고 (PLT)</th>
-                <th class="py-3 px-6 w-28 text-center">적재상태</th>
+                <th class="py-3 px-6 w-32 text-center">현재고 수량</th>
+                <th class="py-3 px-6 w-32 text-center">적재 상태</th>
                 <th class="py-3 px-6 w-24 text-right">작업</th>
               </tr>
             </thead>
@@ -133,11 +172,11 @@
       </div>
     </section>
 
-    <!-- [TAB 3]: 실시간 창고 맵 -->
+    <!-- [TAB 3]: 실시간 창고 레이아웃 맵 -->
     <section id="tab-map" class="tab-content">
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-slate-900">창고 실시간 레이아웃 현황판</h2>
-        <p class="text-sm text-slate-500 mt-1">배정된 가용재고 현황을 구역(Zone)별 물리적 랙 배치를 기준으로 시인성 높게 시각화합니다.</p>
+        <p class="text-sm text-slate-500 mt-1">배정된 가용재고 현황을 구역(Zone)별 물리적 랙 배치를 기준으로 시각화합니다.</p>
       </div>
 
       <div class="flex items-center space-x-4 bg-white p-4 rounded-xl border border-slate-200 mb-6 text-xs font-medium text-slate-500">
@@ -147,15 +186,15 @@
         </div>
         <div class="flex items-center space-x-1.5">
           <span class="w-4 h-4 rounded bg-indigo-200 border border-indigo-400 block"></span>
-          <span>일부 적재 (1 PLT)</span>
+          <span>일부 보관 (1 PLT)</span>
         </div>
         <div class="flex items-center space-x-1.5">
           <span class="w-4 h-4 rounded bg-indigo-600 border border-indigo-700 block"></span>
-          <span>만석 (2 PLT)</span>
+          <span>만석 (2 PLT Max)</span>
         </div>
         <div class="ml-auto flex items-center space-x-1 text-indigo-600">
           <i data-lucide="info" class="w-4 h-4"></i>
-          <span>각 셀을 선택하여 상세 재고 조정을 직접 하실 수도 있습니다.</span>
+          <span>셀을 선택하여 수동 보관 수량을 미세 조절 및 모니터링할 수 있습니다.</span>
         </div>
       </div>
 
@@ -163,8 +202,8 @@
         <!-- 1B 구역 -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-sm font-bold text-indigo-700 uppercase tracking-wider mb-4 border-b pb-2 flex justify-between">
-            <span>1B 구역 (A등급 집중 구역)</span>
-            <span class="text-xs text-slate-400 font-normal">총 12개 셀</span>
+            <span>1B 구역 (A등급 권장 집중 존)</span>
+            <span class="text-xs text-slate-400 font-normal">총 12개 로케이션</span>
           </h3>
           <div id="grid-zone-1B" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-3"></div>
         </div>
@@ -172,8 +211,8 @@
         <!-- 1C 구역 -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-sm font-bold text-emerald-700 uppercase tracking-wider mb-4 border-b pb-2 flex justify-between">
-            <span>1C 구역 (B등급 집중 구역)</span>
-            <span class="text-xs text-slate-400 font-normal">총 12개 셀</span>
+            <span>1C 구역 (B등급 권장 집중 존)</span>
+            <span class="text-xs text-slate-400 font-normal">총 12개 로케이션</span>
           </h3>
           <div id="grid-zone-1C" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-3"></div>
         </div>
@@ -181,8 +220,8 @@
         <!-- 1D 구역 -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-sm font-bold text-amber-700 uppercase tracking-wider mb-4 border-b pb-2 flex justify-between">
-            <span>1D 구역 (C등급 집중 구역)</span>
-            <span class="text-xs text-slate-400 font-normal">총 12개 셀</span>
+            <span>1D 구역 (C등급 권장 집중 존)</span>
+            <span class="text-xs text-slate-400 font-normal">총 12개 로케이션</span>
           </h3>
           <div id="grid-zone-1D" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-3"></div>
         </div>
@@ -191,13 +230,13 @@
 
   </main>
 
-  <!-- 상세 편집 모달 -->
+  <!-- 수동 재고 편집 모달 -->
   <div id="manual-edit-modal" class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6">
       <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
         <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
           <i data-lucide="edit-3" class="text-indigo-600 w-5 h-5"></i>
-          <span>보관 재고 세부 편집</span>
+          <span>재고 세부 편집</span>
         </h3>
         <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -206,7 +245,7 @@
 
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">로케이션 코드</label>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">선택된 로케이션</label>
           <input type="text" id="modal-loc-id" readonly class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 outline-none">
         </div>
 
@@ -216,7 +255,7 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">바코드</label>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">제품 바코드</label>
           <input type="text" id="modal-loc-barcode" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
 
@@ -235,7 +274,7 @@
           취소
         </button>
         <button onclick="saveModalChanges()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition">
-          변경 사항 저장
+          변동 적용하기
         </button>
       </div>
     </div>
@@ -243,12 +282,12 @@
 
   <footer class="bg-white border-t border-slate-200 py-6 mt-12">
     <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
-      <p>© 2026 Smart Warehouse Systems. 구글 시트 동기화 로케이션 엔진</p>
+      <p>© 2026 Smart Warehouse Systems. 통합 WMS 고도화 플랫폼</p>
     </div>
   </footer>
 
   <script>
-    // 1. 기본 전체 구역 로케이션 마스터 데이터셋 구축 (구글 시트 포맷 대응)
+    // 1. 기본 창고 로케이션 마스터 스키마 구축
     const initialLocationMaster = [
       { id: "1B-01-01", targetGrade: "A", barcode: "-", currentProduct: "-", currentQty: 0 },
       { id: "1B-01-02", targetGrade: "A", barcode: "-", currentProduct: "-", currentQty: 0 },
@@ -290,13 +329,15 @@
       { id: "1D-06-02", targetGrade: "C", barcode: "-", currentProduct: "-", currentQty: 0 }
     ];
 
-    let warehouseData = JSON.parse(localStorage.getItem('wms_v3_warehouse_data')) || [...initialLocationMaster];
+    // 상태 보존용 localStorage 초기 데이터 불러오기
+    let parsedInventoryList = JSON.parse(localStorage.getItem('wms_parsed_inventory')) || [];
+    let warehouseData = JSON.parse(localStorage.getItem('wms_v3_5_warehouse_data')) || [...initialLocationMaster];
     let selectedLocForEdit = null;
 
     window.onload = function() {
       lucide.createIcons();
+      renderInventoryListTable();
       renderAllViews();
-      setupPasteStatsCounter();
     }
 
     function renderAllViews() {
@@ -304,7 +345,7 @@
       renderWarehouseMap();
     }
 
-    // 탭 이동 제어
+    // 탭 선택 제어
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('nav button').forEach(el => el.classList.remove('active-tab', 'text-indigo-600'));
@@ -315,119 +356,198 @@
       document.getElementById(`tab-${tabId}-btn`).classList.remove('text-slate-500');
     }
 
-    // 대기 데이터 카운팅 리스너
-    function setupPasteStatsCounter() {
-      const area = document.getElementById('bulk-paste-area');
-      area.addEventListener('input', () => {
-        const text = area.value.trim();
-        if (!text) {
-          document.getElementById('paste-stats').innerText = "0개 품목 대기 중";
-          return;
-        }
-        const lines = text.split('\n').filter(l => l.trim() !== "");
-        // 헤더 제외 개수 계산
-        const count = lines.length > 1 ? lines.length - 1 : lines.length;
-        document.getElementById('paste-stats').innerText = `${count}개 품목 분석 대기 중`;
-      });
-    }
-
-    // 2. 다중 로케이션 수량 분배 자동 매핑 코어 엔진
-    function processBulkPaste() {
-      const rawText = document.getElementById('bulk-paste-area').value.trim();
-      if (!rawText) {
-        showToast("⚠️ 복사된 데이터가 없습니다. 구글 시트에서 복사한 데이터를 붙여넣어주세요.", "error");
+    // 2. WMS 복사 영역 실시간 감지 파싱 시스템
+    function parseWMSTextarea() {
+      const text = document.getElementById('wms-bulk-textarea').value;
+      if (!text.trim()) {
+        document.getElementById('import-stats').innerText = "0개 항목 대기 중";
         return;
       }
 
-      // 초기 빈 상태로 일괄 초기화
+      const lines = text.split('\n');
+      let barcodeIdx = -1;
+      let nameIdx = -1;
+      let qtyIdx = -1;
+      let locIdx = -1;
+
+      // 첫 행의 컬럼 이름 추출 시도
+      const firstLine = lines[0];
+      const cols = firstLine.split(/\t/);
+
+      // 열 이름 자동 인식 매커니즘
+      cols.forEach((col, idx) => {
+        const clean = col.trim().replace(/\s+/g, '');
+        if (clean.includes("바코드")) barcodeIdx = idx;
+        else if (clean.includes("품목명") || clean.includes("품목")) nameIdx = idx;
+        else if (clean.includes("가용재고") || clean.includes("현재고") || clean.includes("재고") || clean.includes("수량")) qtyIdx = idx;
+        else if (clean.includes("다중로케이션") || clean.includes("로케이션") || clean.includes("위치")) locIdx = idx;
+      });
+
+      // 만약 헤더 매핑에 실패한 경우 (단순 행 복사인 경우 기본 순서 배정)
+      if (barcodeIdx === -1) barcodeIdx = 0;
+      if (nameIdx === -1) nameIdx = 1;
+      if (qtyIdx === -1) qtyIdx = 2;
+      if (locIdx === -1) locIdx = 3;
+
+      const results = [];
+      const isHeaderPresent = lines[0].includes("바코드") || lines[0].includes("품목") || lines[0].includes("로케이션");
+      const startIndex = isHeaderPresent ? 1 : 0;
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const cells = line.split(/\t/);
+        if (cells.length > Math.max(barcodeIdx, nameIdx, qtyIdx, locIdx)) {
+          results.push({
+            barcode: cells[barcodeIdx] ? cells[barcodeIdx].trim() : "-",
+            name: cells[nameIdx] ? cells[nameIdx].trim() : "-",
+            qty: parseInt(cells[qtyIdx] ? cells[qtyIdx].replace(/,/g, '').trim() : "0") || 0,
+            locations: cells[locIdx] ? cells[locIdx].trim() : ""
+          });
+        }
+      }
+
+      parsedInventoryList = results;
+      localStorage.setItem('wms_parsed_inventory', JSON.stringify(parsedInventoryList));
+      renderInventoryListTable();
+
+      document.getElementById('import-stats').innerText = `${results.length}개 품목 실시간 로드 완료`;
+    }
+
+    // 파싱된 실재고 리스트 테이블 렌더링
+    function renderInventoryListTable() {
+      const tbody = document.getElementById('inventory-list-rows');
+      if (parsedInventoryList.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-12 text-center text-slate-400 text-xs">
+              <i data-lucide="clipboard" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+              복사한 WMS 데이터를 붙여넣거나 [품목 개별 추가]를 통해 재고 정보를 등록해 주세요.
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      tbody.innerHTML = '';
+      parsedInventoryList.forEach((item, index) => {
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 transition text-xs">
+            <td class="p-3">
+              <input type="text" value="${item.barcode}" onchange="updateInventoryItem(${index}, 'barcode', this.value)" class="w-full bg-transparent border border-slate-200 rounded px-2 py-1 font-mono text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+            </td>
+            <td class="p-3">
+              <input type="text" value="${item.name}" onchange="updateInventoryItem(${index}, 'name', this.value)" class="w-full bg-transparent border border-slate-200 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+            </td>
+            <td class="p-3">
+              <input type="number" value="${item.qty}" onchange="updateInventoryItem(${index}, 'qty', this.value)" class="w-full bg-transparent border border-slate-200 rounded px-2 py-1 text-xs font-bold text-indigo-600 focus:ring-1 focus:ring-indigo-500 outline-none">
+            </td>
+            <td class="p-3">
+              <input type="text" value="${item.locations}" placeholder="예: 1B-01-01, 1B-01-02" onchange="updateInventoryItem(${index}, 'locations', this.value)" class="w-full bg-transparent border border-slate-200 rounded px-2 py-1 text-xs text-indigo-600 font-semibold focus:ring-1 focus:ring-indigo-500 outline-none">
+            </td>
+            <td class="p-3 text-right">
+              <button onclick="removeInventoryItem(${index})" class="text-slate-400 hover:text-red-500 transition px-2 py-1"><i data-lucide="trash" class="w-4 h-4 inline"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    // 개별 입력 항목 동기 업데이트
+    function updateInventoryItem(index, field, value) {
+      if (field === 'qty') {
+        parsedInventoryList[index][field] = parseInt(value) || 0;
+      } else {
+        parsedInventoryList[index][field] = value;
+      }
+      localStorage.setItem('wms_parsed_inventory', JSON.stringify(parsedInventoryList));
+    }
+
+    // 항목 수동 추가
+    function addNewInventoryRow() {
+      parsedInventoryList.push({
+        barcode: "",
+        name: "새로운 품목",
+        qty: 0,
+        locations: ""
+      });
+      renderInventoryListTable();
+    }
+
+    // 항목 개별 제거
+    function removeInventoryItem(index) {
+      parsedInventoryList.splice(index, 1);
+      localStorage.setItem('wms_parsed_inventory', JSON.stringify(parsedInventoryList));
+      renderInventoryListTable();
+      showToast("❌ 재고 항목이 삭제되었습니다.");
+    }
+
+    // 3. 동기화 엔진 핵심: 파싱된 재고 분배 자동 매핑 로직
+    function syncPastedToLocations() {
+      if (parsedInventoryList.length === 0) {
+        showToast("⚠️ 먼저 재고 목록 데이터를 붙여넣거나 품목 정보를 입력해 주세요.", "error");
+        return;
+      }
+
+      // 랙 전체 초기화 (데이터 덮어쓰기 정합성 확보)
       warehouseData.forEach(loc => {
         loc.barcode = "-";
         loc.currentProduct = "-";
         loc.currentQty = 0;
       });
 
-      const lines = rawText.split('\n');
-      if (lines.length === 0) return;
+      let allocatedCount = 0;
 
-      // 컬럼 헤더 자동 감지 시스템
-      let barcodeIdx = 0;
-      let nameIdx = 1;
-      let qtyIdx = 4; // 가용재고 기준 디폴트 설정
-      let locsIdx = 6; // 다중로케이션 기준 디폴트 설정
+      parsedInventoryList.forEach(item => {
+        if (!item.locations || item.locations === "-") return;
 
-      const firstLine = lines[0].toLowerCase();
-      const headers = firstLine.split(/\t/);
+        // 다중 로케이션 목록 정제
+        const locs = item.locations.split(',').map(l => l.trim());
+        let availableQty = item.qty;
 
-      // 붙여넣은 첫 행이 헤더 구조일 경우 인덱스 동적 동기화
-      if (headers.some(h => h.includes("바코드") || h.includes("품목") || h.includes("로케이션") || h.includes("재고"))) {
-        headers.forEach((header, index) => {
-          const cleanHeader = header.trim();
-          if (cleanHeader.includes("바코드")) barcodeIdx = index;
-          else if (cleanHeader.includes("품목명") || cleanHeader.includes("품목")) nameIdx = index;
-          else if (cleanHeader.includes("가용재고") || cleanHeader.includes("현재고")) qtyIdx = index;
-          else if (cleanHeader.includes("다중로케이션") || cleanHeader.includes("로케이션")) locsIdx = index;
+        // 다중 로케이션에 가용재고 분할 적재 매핑 (랙당 최대 2 PLT 적재 한계 반영)
+        locs.forEach(locId => {
+          if (availableQty <= 0) return;
+
+          const index = warehouseData.findIndex(w => w.id === locId);
+          if (index !== -1) {
+            warehouseData[index].barcode = item.barcode || "-";
+            warehouseData[index].currentProduct = item.name || "-";
+
+            // 해당 칸에 배분할 적재량 산출
+            const assignQty = availableQty >= 2 ? 2 : availableQty;
+            warehouseData[index].currentQty = assignQty;
+
+            availableQty -= assignQty; // 남은 수량 차감 후 다음 로케이션 셀로 순회
+            allocatedCount++;
+          }
         });
-        // 헤더행 처리했으므로 첫 줄 제거
-        lines.shift();
-      }
-
-      let matchedRowCounter = 0;
-
-      lines.forEach(line => {
-        if (!line.trim()) return;
-        const cols = line.split(/\t/);
-
-        if (cols.length > Math.max(barcodeIdx, nameIdx, qtyIdx, locsIdx)) {
-          const barcode = cols[barcodeIdx].trim();
-          const productName = cols[nameIdx].trim();
-          let availableQty = parseInt(cols[qtyIdx].replace(/,/g, '').trim()) || 0;
-          const locString = cols[locsIdx] ? cols[locsIdx].trim() : "";
-
-          if (!locString || locString === "-") return;
-
-          // 다중 로케이션 파싱 (예: "1B-01-01, 1B-01-02")
-          const targetLocs = locString.split(',').map(s => s.trim());
-
-          // 각 다중 로케이션에 가용재고 분할 배정 (Max 2 PLT씩 순차 배분)
-          targetLocs.forEach(locId => {
-            if (availableQty <= 0) return;
-
-            const index = warehouseData.findIndex(w => w.id === locId);
-            if (index !== -1) {
-              warehouseData[index].barcode = barcode;
-              warehouseData[index].currentProduct = productName;
-
-              // 배정 가능한 단위 수량 (최대 2개씩)
-              const assignQty = availableQty >= 2 ? 2 : availableQty;
-              warehouseData[index].currentQty = assignQty;
-              
-              availableQty -= assignQty; // 배정 수량만큼 차감 후 다음 로케이션으로 이동
-              matchedRowCounter++;
-            }
-          });
-        }
       });
 
       saveState();
       renderAllViews();
-      showToast(`✅ ${matchedRowCounter}개 로케이션 매핑 및 다중 적재 완료!`, "success");
-      switchTab('sheet');
+      showToast(`🎉 ${allocatedCount}개 로케이션 자동 분산 매핑 완료!`, "success");
+      switchTab('sheet'); // 시트 뷰 탭으로 전환하여 대조 가능하도록 처리
     }
 
-    // 구글 시트 복사용 샘플 원본 데이터 세트 로드
-    function loadSampleSheetData() {
-      const sampleData = 
-`바코드	품목명	규격	현재고	가용재고	미결수량	다중로케이션
-8801111222233	아세트아미노펜 대용량 박스	BOX	10	4	0	1B-01-01, 1B-01-02
-8809999888877	비타민C 활성 패키지	BOX	5	3	0	1C-01-01, 1C-01-02
-8805555444433	정밀 가공 완충재 패널	PLT	4	2	0	1D-01-01`;
+    // 4. 테스트 편의용 WMS 원본 데이터셋 복사 기능
+    function loadSampleWMSData() {
+      const rawSample = 
+`바코드\t품목명\t가용재고\t다중로케이션
+8801234500012\t타이레놀 아세트아미노펜 대용량\t4\t1B-01-01, 1B-01-02
+8809876500223\t고려은단 비타민C 액티브\t3\t1C-01-01, 1C-01-02
+8801112224455\t케토톱 플라스타 관절패치\t2\t1D-01-01
+8803332221112\t동화약품 활명수 골드 10P\t6\t1B-02-01, 1B-02-02, 1B-03-01`;
 
-      document.getElementById('bulk-paste-area').value = sampleData;
-      document.getElementById('paste-stats').innerText = "3개 품목 분석 대기 중";
-      showToast("📋 구글 시트 포맷 샘플 데이터가 로드되었습니다. 동기화 버튼을 누르세요.");
+      document.getElementById('wms-bulk-textarea').value = rawSample;
+      parseWMSTextarea();
+      showToast("💡 WMS 샘플 원본 데이터 세트가 파싱 테이블에 업로드되었습니다.");
     }
 
-    // 3. 재고 로케이션 현황 (시트 뷰) 테이블 드로잉
+    // 5. 구글 시트형 재고 로케이션 현황 테이블
     function renderSheetTable() {
       const tbody = document.getElementById('sheet-table-rows');
       tbody.innerHTML = '';
@@ -441,22 +561,37 @@
         }
 
         tbody.innerHTML += `
-          <tr class="hover:bg-slate-50/80 transition">
+          <tr class="hover:bg-slate-50/80 transition text-xs sheet-row" data-search="${loc.id} ${loc.currentProduct} ${loc.barcode}">
             <td class="py-3 px-6 font-bold text-slate-900">${loc.id}</td>
             <td class="py-3 px-6 text-center"><span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">${loc.targetGrade}존</span></td>
-            <td class="py-3 px-6 font-mono text-xs text-slate-500">${loc.barcode}</td>
+            <td class="py-3 px-6 font-mono text-slate-500">${loc.barcode}</td>
             <td class="py-3 px-6 font-medium text-slate-800">${loc.currentProduct}</td>
             <td class="py-3 px-6 text-center font-bold text-indigo-600">${loc.currentQty > 0 ? loc.currentQty + ' PLT' : '-'}</td>
             <td class="py-3 px-6 text-center">${badge}</td>
-            <td class="py-3 px-6 text-right">
-              <button onclick="openEditModal('${loc.id}')" class="text-xs text-indigo-600 hover:text-indigo-950 font-bold transition">수동 조절</button>
+            <td class="py-3 px-6 text-right font-bold">
+              <button onclick="openEditModal('${loc.id}')" class="text-xs text-indigo-600 hover:text-indigo-950 transition">수동수정</button>
             </td>
           </tr>
         `;
       });
     }
 
-    // 4. 창고 실시간 레이아웃 맵 시각화 드로잉
+    // 시트 뷰 내부 데이터 필터링 검색 엔진
+    function filterSheetTable() {
+      const query = document.getElementById('sheet-search-input').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('.sheet-row');
+
+      rows.forEach(row => {
+        const text = row.getAttribute('data-search').toLowerCase();
+        if (text.includes(query)) {
+          row.style.display = "";
+        } else {
+          row.style.display = "none";
+        }
+      });
+    }
+
+    // 6. 창고 물리 레이아웃 맵 가시화 드로잉
     function renderWarehouseMap() {
       const zones = ["1B", "1C", "1D"];
       zones.forEach(zone => {
@@ -480,7 +615,7 @@
             <div onclick="openEditModal('${loc.id}')" class="border rounded-xl p-3 cursor-pointer transition transform hover:-translate-y-0.5 flex flex-col justify-between h-24 ${bgClass}">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold tracking-tight">${loc.id}</span>
-                <span class="text-[9px] px-1 py-0.5 rounded bg-white/70 text-slate-800 font-semibold border border-slate-100">
+                <span class="text-[9px] px-1 py-0.5 rounded bg-white/70 text-slate-800 font-semibold border border-slate-200">
                   ${loc.targetGrade}존
                 </span>
               </div>
@@ -495,7 +630,7 @@
       lucide.createIcons();
     }
 
-    // 5. 모달 제어 및 수동 미세조정 수정 기능
+    // 7. 모달 세부 적재 정보 수정 엔진
     function openEditModal(locId) {
       selectedLocForEdit = locId;
       const loc = warehouseData.find(w => w.id === locId);
@@ -530,38 +665,43 @@
         saveState();
         renderAllViews();
         closeModal();
-        showToast("💾 로케이션 수동 적재 설정이 즉각 저장되었습니다.", "success");
+        showToast("💾 로케이션 개별 적재 현황이 수동 저장되었습니다.", "success");
       }
     }
 
-    // 6. 상태 백업 및 유틸리티 함수
+    // 8. 로컬 스토리지 데이터 동기화 유틸리티
     function saveState() {
-      localStorage.setItem('wms_v3_warehouse_data', JSON.stringify(warehouseData));
+      localStorage.setItem('wms_v3_5_warehouse_data', JSON.stringify(warehouseData));
     }
 
     function resetAllData() {
-      if (confirm("🚨 경고: 모든 로케이션 매핑 정보를 리셋하고 공석 상태로 되돌리시겠습니까?")) {
-        localStorage.removeItem('wms_v3_warehouse_data');
+      if (confirm("🚨 경고: WMS 데이터 및 저장된 모든 로케이션 매핑 정보를 삭제하고 초기화하시겠습니까?")) {
+        localStorage.removeItem('wms_v3_5_warehouse_data');
+        localStorage.removeItem('wms_parsed_inventory');
         warehouseData = JSON.parse(JSON.stringify(initialLocationMaster));
-        document.getElementById('bulk-paste-area').value = '';
-        document.getElementById('paste-stats').innerText = "0개 품목 대기 중";
+        parsedInventoryList = [];
+        
+        document.getElementById('wms-bulk-textarea').value = '';
+        document.getElementById('import-stats').innerText = "0개 항목 대기 중";
+        
+        renderInventoryListTable();
         renderAllViews();
-        showToast("🔄 저장된 데이터베이스가 초기 공석 상태로 복구되었습니다.");
+        showToast("🔄 모든 재고 데이터베이스가 공석 복구 및 리셋 완료되었습니다.");
       }
     }
 
     function exportToCSV() {
       let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-      csvContent += "로케이션,바코드,품목명,수량(PLT)\n";
+      csvContent += "로케이션ID,권장등급,바코드,보관품목명,현재고(PLT)\n";
 
       warehouseData.forEach(loc => {
-        csvContent += `${loc.id},${loc.barcode},${loc.currentProduct},${loc.currentQty}\n`;
+        csvContent += `${loc.id},${loc.targetGrade},${loc.barcode},${loc.currentProduct},${loc.currentQty}\n`;
       });
 
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `WMS_Inventory_Location_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute("download", `Smart_WMS_Data_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
