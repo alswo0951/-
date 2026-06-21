@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>물류창고 로케이션 자동 할당 시스템</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+    body {
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- 네비게이션 바 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-600 rounded-lg text-white">
+          <i data-lucide="layout-grid" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="text-lg font-bold text-slate-900 tracking-tight">Smart WMS</span>
+          <span class="text-xs text-indigo-600 font-semibold block -mt-1">로케이션 자동 할당 시스템</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-green-500 animate-pulse"></span>
+          실시간 로컬 가동 중
+        </span>
+        <button onclick="resetData()" class="flex items-center space-x-1 text-xs text-slate-500 hover:text-red-600 transition">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span>데이터 초기화</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- 1단계: 상단 통계 대시보드 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+          <i data-lucide="database" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">전체 창고 점유율</p>
+          <div class="flex items-baseline space-x-2">
+            <span id="stat-occupancy" class="text-2xl font-bold text-slate-950">0%</span>
+            <span id="stat-occupancy-ratio" class="text-xs text-slate-400">(0 / 0 PLT)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+          <i data-lucide="check-circle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">완전 공석 로케이션</p>
+          <span id="stat-empty" class="text-2xl font-bold text-slate-950">0개</span>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+        <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">일부 적재 로케이션</p>
+          <span id="stat-partial" class="text-2xl font-bold text-slate-950">0개</span>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+        <div class="p-3 bg-red-50 text-red-600 rounded-xl">
+          <i data-lucide="x-circle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">만석 로케이션</p>
+          <span id="stat-full" class="text-2xl font-bold text-slate-950">0개</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2단계: 핵심 기능 (자동 지정 및 레이아웃 맵) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+      
+      <!-- 좌측: 신규 입고 로케이션 자동 할당기 -->
+      <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="zap" class="text-indigo-600 w-5 h-5 animate-pulse"></i>
+              <span>자동 로케이션 배정기</span>
+            </h2>
+            <span class="text-xs text-slate-400">구글 시트 로직 연동</span>
+          </div>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">입고 대상 품목군</label>
+              <select id="input-product" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="updateProductGradeHint()">
+                <!-- JS에서 채워짐 -->
+              </select>
+              <p id="grade-hint" class="text-xs text-indigo-600 mt-1.5 font-medium"></p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">입고 수량 (PLT)</label>
+              <input type="number" id="input-qty" min="1" max="100" value="1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <button onclick="calculateLocation()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition shadow-sm hover:shadow-md flex items-center justify-center space-x-2">
+              <i data-lucide="play" class="w-4 h-4"></i>
+              <span>최적 로케이션 분석</span>
+            </button>
+          </div>
+
+          <!-- 추천 결과 박스 -->
+          <div id="allocation-result" class="mt-6 p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 hidden">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">시스템 추천 결과</h3>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs text-slate-500">추천 로케이션</p>
+                <p id="recommended-loc" class="text-xl font-bold text-slate-900">-</p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-slate-500">배치 후 잔여 케파</p>
+                <p id="recommended-capacity" class="text-sm font-semibold text-emerald-600">-</p>
+              </div>
+            </div>
+            
+            <div class="mt-4 p-2.5 bg-indigo-50/80 rounded-lg text-xs text-indigo-700 border border-indigo-100 flex items-start space-x-2">
+              <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+              <span id="allocation-reason">로케이션 매핑 규칙에 따라 계산되었습니다.</span>
+            </div>
+
+            <button onclick="applyAllocation()" class="w-full mt-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs transition flex items-center justify-center space-x-1.5">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>해당 위치로 입고 확정</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-6 border-t border-slate-100">
+          <div class="flex items-center space-x-2 text-xs text-slate-400">
+            <i data-lucide="shield-alert" class="w-4 h-4"></i>
+            <span>지정 규칙: A등급(출고량 상위) → 입구 가깝고 회전율 높은 존</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측: 인터랙티브 창고 로케이션 맵 (2개 컬럼 차지) -->
+      <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-100 mb-6">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="map" class="text-indigo-600 w-5 h-5"></i>
+              <span>창고 실시간 로케이션 현황판</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">창고 구역을 시각적으로 탐색하고 적재량을 실시간 모니터링합니다.</p>
+          </div>
+          <!-- 필터 및 토글 -->
+          <div class="flex items-center space-x-2 mt-4 sm:mt-0">
+            <select id="filter-zone" class="bg-slate-100 border-none rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500" onchange="renderWarehouseMap()">
+              <option value="ALL">전체 구역 보기</option>
+              <option value="1B">1B 구역 (A등급 특화)</option>
+              <option value="1C">1C 구역 (B등급 특화)</option>
+              <option value="1D">1D 구역 (C등급 특화)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 맵 범례 -->
+        <div class="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <span class="flex items-center space-x-1.5">
+            <span class="w-3.5 h-3.5 rounded-md bg-slate-200 border border-slate-300 block"></span>
+            <span>공석 (0 PLT)</span>
+          </span>
+          <span class="flex items-center space-x-1.5">
+            <span class="w-3.5 h-3.5 rounded-md bg-indigo-200 border border-indigo-400 block"></span>
+            <span>1 PLT 적재</span>
+          </span>
+          <span class="flex items-center space-x-1.5">
+            <span class="w-3.5 h-3.5 rounded-md bg-indigo-600 border border-indigo-700 block"></span>
+            <span>2 PLT 만석 (꽉참)</span>
+          </span>
+          <span class="flex items-center space-x-1.5 ml-auto text-indigo-600">
+            <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+            <span>셀 클릭 시 상세 편집 가능</span>
+          </span>
+        </div>
+
+        <!-- 로케이션 그리드 영역 -->
+        <div class="flex-1 overflow-auto max-h-[350px] pr-2">
+          <div id="warehouse-grid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+            <!-- JS로 로케이션 셀을 렌더링 -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 3단계: 하단 상세 데이터 제어 그리드 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="database" class="text-indigo-600 w-5 h-5"></i>
+            <span>전체 로케이션 데이터 베이스</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">창고 내 각 셀의 적재 이력과 수동 관리 그리드입니다.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="exportToCSV()" class="flex items-center space-x-1 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>CSV 다운로드</span>
+          </button>
+          <label class="flex items-center space-x-1 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold cursor-pointer transition">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>CSV 불러오기</span>
+            <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="importFromCSV(event)">
+          </label>
+        </div>
+      </div>
+
+      <!-- 테이블 래퍼 -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-100">
+              <th class="py-3.5 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">로케이션 코드</th>
+              <th class="py-3.5 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">권장 등급</th>
+              <th class="py-3.5 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">보관 물품</th>
+              <th class="py-3.5 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">현재 적재량</th>
+              <th class="py-3.5 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">상태</th>
+              <th class="py-3.5 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">작업</th>
+            </tr>
+          </thead>
+          <tbody id="database-rows" class="divide-y divide-slate-100">
+            <!-- JS로 데이터 로우 렌더링 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 상세 편집 모달 -->
+  <div id="edit-modal" class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 overflow-hidden transform transition-all">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <i data-lucide="edit-3" class="text-indigo-600 w-5 h-5"></i>
+          <span id="modal-title">로케이션 상세 편집</span>
+        </h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">선택된 로케이션</label>
+          <input type="text" id="modal-loc" readonly class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">보관 대상 품목</label>
+          <select id="modal-product" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <!-- JS에서 채워짐 -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">적재 수량 (최대 2 PLT)</label>
+          <select id="modal-qty" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="0">0 PLT (공석)</option>
+            <option value="1">1 PLT</option>
+            <option value="2">2 PLT (만석)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex space-x-3 mt-6 pt-4 border-t border-slate-100">
+        <button onclick="closeModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition">
+          취소
+        </button>
+        <button onclick="saveModalChanges()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition">
+          변경 사항 저장
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-white border-t border-slate-200 mt-16 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
+      <p>© 2026 Smart Warehouse Systems. 입고 로케이션 매핑 자동화 프로젝트</p>
+    </div>
+  </footer>
+
+  <script>
+    // 1. 초기 샘플 데이터 정의 (구글 시트 연동 기반)
+    const productList = [
+      { code: "PROD-A01", name: "고회전율 대형 박스", grade: "A", detail: "A등급 (빠른 회전율 필요)" },
+      { code: "PROD-B02", name: "중회전율 부품 패키지", grade: "B", detail: "B등급 (중간 등급 존)" },
+      { code: "PROD-C03", name: "저회전율 소형 자재", grade: "C", detail: "C등급 (비선호/외곽 존)" },
+      { code: "EMPTY", name: "없음 (공석 상태)", grade: "-", detail: "빈 로케이션" }
+    ];
+
+    // 시트의 실제 구역 분류 반영: 1B(A등급 전용), 1C(B등급 전용), 1D(C등급 전용)
+    const initialLocations = [
+      { id: "1B-01-01", targetGrade: "A", currentProduct: "PROD-A01", currentQty: 2 },
+      { id: "1B-01-02", targetGrade: "A", currentProduct: "PROD-A01", currentQty: 1 },
+      { id: "1B-02-01", targetGrade: "A", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1B-02-02", targetGrade: "A", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1B-03-01", targetGrade: "A", currentProduct: "PROD-A01", currentQty: 2 },
+      { id: "1B-03-02", targetGrade: "A", currentProduct: "EMPTY", currentQty: 0 },
+      
+      { id: "1C-01-01", targetGrade: "B", currentProduct: "PROD-B02", currentQty: 2 },
+      { id: "1C-01-02", targetGrade: "B", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1C-02-01", targetGrade: "B", currentProduct: "PROD-B02", currentQty: 1 },
+      { id: "1C-02-02", targetGrade: "B", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1C-03-01", targetGrade: "B", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1C-03-02", targetGrade: "B", currentProduct: "EMPTY", currentQty: 0 },
+
+      { id: "1D-01-01", targetGrade: "C", currentProduct: "PROD-C03", currentQty: 2 },
+      { id: "1D-01-02", targetGrade: "C", currentProduct: "PROD-C03", currentQty: 2 },
+      { id: "1D-02-01", targetGrade: "C", currentProduct: "PROD-C03", currentQty: 1 },
+      { id: "1D-02-02", targetGrade: "C", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1D-03-01", targetGrade: "C", currentProduct: "EMPTY", currentQty: 0 },
+      { id: "1D-03-02", targetGrade: "C", currentProduct: "EMPTY", currentQty: 0 }
+    ];
+
+    let locations = JSON.parse(localStorage.getItem('wms_locations')) || [...initialLocations];
+    let selectedLocForEdit = null;
+    let computedTempResult = null;
+
+    // 2. 초기 기동 함수
+    window.onload = function() {
+      lucide.createIcons();
+      initDropdowns();
+      updateDashboardStats();
+      renderWarehouseMap();
+      renderDatabaseTable();
+      updateProductGradeHint();
+    }
+
+    // 드롭다운 정보 셋팅
+    function initDropdowns() {
+      const selectProd = document.getElementById('input-product');
+      const modalProd = document.getElementById('modal-product');
+      
+      selectProd.innerHTML = '';
+      modalProd.innerHTML = '';
+
+      productList.forEach(prod => {
+        if (prod.code !== "EMPTY") {
+          selectProd.innerHTML += `<option value="${prod.code}">${prod.name} (${prod.code})</option>`;
+        }
+        modalProd.innerHTML += `<option value="${prod.code}">${prod.name}</option>`;
+      });
+    }
+
+    // 대시보드 통계 계산 및 업데이트
+    function updateDashboardStats() {
+      const maxCapacity = locations.length * 2; // 각 로케이션 최대 2 PLT
+      let currentLoaded = 0;
+      let emptyCount = 0;
+      let partialCount = 0;
+      let fullCount = 0;
+
+      locations.forEach(loc => {
+        currentLoaded += loc.currentQty;
+        if (loc.currentQty === 0) emptyCount++;
+        else if (loc.currentQty === 1) partialCount++;
+        else if (loc.currentQty === 2) fullCount++;
+      });
+
+      const occupancyRate = maxCapacity > 0 ? Math.round((currentLoaded / maxCapacity) * 100) : 0;
+
+      document.getElementById('stat-occupancy').innerText = `${occupancyRate}%`;
+      document.getElementById('stat-occupancy-ratio').innerText = `(${currentLoaded} / ${maxCapacity} PLT)`;
+      document.getElementById('stat-empty').innerText = `${emptyCount}개`;
+      document.getElementById('stat-partial').innerText = `${partialCount}개`;
+      document.getElementById('stat-full').innerText = `${fullCount}개`;
+    }
+
+    // 등급 힌트 텍스트 변경
+    function updateProductGradeHint() {
+      const prodCode = document.getElementById('input-product').value;
+      const product = productList.find(p => p.code === prodCode);
+      if (product) {
+        document.getElementById('grade-hint').innerText = `💡 해당 제품은 [${product.grade}등급]이며, 권장 구역인 1${product.grade} 구역에 우선 배치됩니다.`;
+      }
+    }
+
+    // 3. 로케이션 자동 매핑 코어 알고리즘 구현
+    function calculateLocation() {
+      const prodCode = document.getElementById('input-product').value;
+      const qty = parseInt(document.getElementById('input-qty').value);
+      const product = productList.find(p => p.code === prodCode);
+
+      if (!product || qty <= 0) return;
+
+      // 시트 규칙에 의거: 해당 제품 등급과 일치하는 Zone 매핑 시도
+      let targetZone = `1${product.grade}`; 
+      let optimalLoc = null;
+      let reason = "";
+
+      // 규칙 1순위: 동일 품목이 적재되어 있고 아직 여유 공간(1 PLT)이 있는 동일 등급 구역의 로케이션 찾기
+      optimalLoc = locations.find(loc => 
+        loc.id.startsWith(targetZone) && 
+        loc.currentProduct === prodCode && 
+        loc.currentQty === 1
+      );
+
+      if (optimalLoc) {
+        reason = `[최적화 우선순위 1] 동일 품목이 적재되어 있는 동일한 ${product.grade}등급 구역(${optimalLoc.id})의 여유 공간을 활용하여 보관율을 높입니다.`;
+      }
+
+      // 규칙 2순위: 1순위가 없다면 완전히 비어있는 해당 등급 전용 로케이션 찾기
+      if (!optimalLoc) {
+        optimalLoc = locations.find(loc => 
+          loc.id.startsWith(targetZone) && 
+          loc.currentQty === 0
+        );
+        if (optimalLoc) {
+          reason = `[최적화 우선순위 2] 동일 등급 전용인 ${product.grade}등급 전용 공석 구역(${optimalLoc.id})에 안전하게 자동 지정되었습니다.`;
+        }
+      }
+
+      // 규칙 3순위: 타 등급 여유 로케이션 탐색 (A -> B -> C 순으로 가깝게 배치)
+      if (!optimalLoc) {
+        optimalLoc = locations.find(loc => loc.currentQty === 0);
+        if (optimalLoc) {
+          reason = `[최외곽 대체순위] 해당 ${product.grade}등급 지정 구역이 만석입니다. 인근 타 등급 전용 공석 로케이션(${optimalLoc.id})으로 우회 지정합니다.`;
+        }
+      }
+
+      // 결과 화면 렌더링
+      const resultBox = document.getElementById('allocation-result');
+      resultBox.classList.remove('hidden');
+
+      if (optimalLoc) {
+        document.getElementById('recommended-loc').innerText = optimalLoc.id;
+        document.getElementById('recommended-capacity').innerText = `${optimalLoc.currentQty + qty > 2 ? '초과 (분할 배치 필요)' : (2 - (optimalLoc.currentQty + qty)) + ' PLT 남음'}`;
+        document.getElementById('allocation-reason').innerText = reason;
+        
+        computedTempResult = {
+          locId: optimalLoc.id,
+          productCode: prodCode,
+          addQty: qty
+        };
+      } else {
+        document.getElementById('recommended-loc').innerText = "적재 불가";
+        document.getElementById('recommended-capacity').innerText = "여유 공간 없음";
+        document.getElementById('allocation-reason').innerText = "현재 물류창고의 모든 로케이션의 공간이 가득 차서 신규 입고를 진행할 수 없습니다.";
+        computedTempResult = null;
+      }
+    }
+
+    // 추천 위치 입고 확정 적용
+    function applyAllocation() {
+      if (!computedTempResult) return;
+
+      const locIndex = locations.findIndex(l => l.id === computedTempResult.locId);
+      if (locIndex !== -1) {
+        const target = locations[locIndex];
+        const nextQty = target.currentQty + computedTempResult.addQty;
+        
+        if (nextQty > 2) {
+          showToast(`⚠️ 해당 로케이션(${target.id})의 최대 적재 한도(2 PLT)를 초과하여 잔여량만 적재 처리됩니다.`, "error");
+          target.currentQty = 2;
+        } else {
+          target.currentQty = nextQty;
+        }
+
+        target.currentProduct = computedTempResult.productCode;
+        
+        saveState();
+        updateDashboardStats();
+        renderWarehouseMap();
+        renderDatabaseTable();
+        
+        showToast(`✅ ${target.id} 로케이션에 ${computedTempResult.addQty} PLT 입고가 성공적으로 반영되었습니다.`, "success");
+        document.getElementById('allocation-result').classList.add('hidden');
+      }
+    }
+
+    // 4. 로케이션 시각화 맵 드로잉
+    function renderWarehouseMap() {
+      const grid = document.getElementById('warehouse-grid');
+      const filterZone = document.getElementById('filter-zone').value;
+      grid.innerHTML = '';
+
+      locations.forEach(loc => {
+        if (filterZone !== "ALL" && !loc.id.startsWith(filterZone)) {
+          return; // 필터링 조건 필터링
+        }
+
+        let bgClass = "bg-slate-100 hover:bg-slate-200 border-slate-300";
+        let textClass = "text-slate-600";
+        
+        if (loc.currentQty === 1) {
+          bgClass = "bg-indigo-100 border-indigo-400 hover:bg-indigo-200";
+          textClass = "text-indigo-800";
+        } else if (loc.currentQty === 2) {
+          bgClass = "bg-indigo-600 border-indigo-700 hover:bg-indigo-700";
+          textClass = "text-white";
+        }
+
+        const product = productList.find(p => p.code === loc.currentProduct);
+        const prodName = product ? product.name : '없음';
+
+        grid.innerHTML += `
+          <div onclick="openEditModal('${loc.id}')" class="border rounded-xl p-3 cursor-pointer transition transform hover:-translate-y-0.5 flex flex-col justify-between h-24 ${bgClass}">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold tracking-tight">${loc.id}</span>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-white/80 text-indigo-800 border border-slate-200">
+                ${loc.targetGrade}존
+              </span>
+            </div>
+            <div class="mt-1">
+              <p class="text-[10px] font-semibold truncate ${loc.currentQty === 2 ? 'text-indigo-100' : 'text-slate-500'}">${prodName}</p>
+              <p class="text-xs font-bold mt-0.5 ${textClass}">${loc.currentQty} / 2 PLT</p>
+            </div>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    // 5. 하단 상세 데이터 목록 테이블 드로잉
+    function renderDatabaseTable() {
+      const tbody = document.getElementById('database-rows');
+      tbody.innerHTML = '';
+
+      locations.forEach(loc => {
+        const product = productList.find(p => p.code === loc.currentProduct);
+        const prodName = product ? product.name : '없음';
+        
+        let badge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">공석</span>`;
+        if (loc.currentQty === 1) {
+          badge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">일부 적재</span>`;
+        } else if (loc.currentQty === 2) {
+          badge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">만석</span>`;
+        }
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-6 text-sm font-bold text-slate-900">${loc.id}</td>
+            <td class="py-3.5 px-6 text-sm text-slate-500">${loc.targetGrade} 등급 전용</td>
+            <td class="py-3.5 px-6 text-sm font-medium text-slate-700">${prodName}</td>
+            <td class="py-3.5 px-6 text-sm text-slate-500 font-mono">${loc.currentQty} / 2 PLT</td>
+            <td class="py-3.5 px-6">${badge}</td>
+            <td class="py-3.5 px-6 text-right">
+              <button onclick="openEditModal('${loc.id}')" class="text-xs text-indigo-600 hover:text-indigo-900 font-semibold transition">수동 조절</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // 6. 데이터 편집 모달 제어
+    function openEditModal(locId) {
+      selectedLocForEdit = locId;
+      const loc = locations.find(l => l.id === locId);
+      if (!loc) return;
+
+      document.getElementById('modal-loc').value = loc.id;
+      document.getElementById('modal-product').value = loc.currentProduct;
+      document.getElementById('modal-qty').value = loc.currentQty;
+
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('edit-modal').classList.add('hidden');
+      selectedLocForEdit = null;
+    }
+
+    function saveModalChanges() {
+      if (!selectedLocForEdit) return;
+
+      const locIndex = locations.findIndex(l => l.id === selectedLocForEdit);
+      if (locIndex !== -1) {
+        const nextProd = document.getElementById('modal-product').value;
+        const nextQty = parseInt(document.getElementById('modal-qty').value);
+
+        locations[locIndex].currentProduct = nextProd;
+        locations[locIndex].currentQty = nextQty;
+
+        // 적재량이 0인데 품목이 등록되어있으면 EMPTY 처리
+        if (nextQty === 0) {
+          locations[locIndex].currentProduct = "EMPTY";
+        }
+
+        saveState();
+        updateDashboardStats();
+        renderWarehouseMap();
+        renderDatabaseTable();
+        closeModal();
+        showToast("💾 로케이션 수동 변경 내용이 시스템에 즉각 반영되었습니다.", "success");
+      }
+    }
+
+    // 7. 데이터 영구 저장 및 CSV 내보내기/가져오기 기능
+    function saveState() {
+      localStorage.setItem('wms_locations', JSON.stringify(locations));
+    }
+
+    function resetData() {
+      if (confirm("정말로 최초 설정 데이터로 로케이션 현황을 초기화하시겠습니까?")) {
+        localStorage.removeItem('wms_locations');
+        locations = [...initialLocations];
+        updateDashboardStats();
+        renderWarehouseMap();
+        renderDatabaseTable();
+        showToast("🔄 모든 로케이션 정보가 초기 원본 상태로 재설정되었습니다.", "info");
+      }
+    }
+
+    // CSV 다운로드 (구글 시트와 호환을 위한 포맷팅)
+    function exportToCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += "로케이션코드,권장등급,보관물품,현재적재량(PLT)\n";
+
+      locations.forEach(loc => {
+        csvContent += `${loc.id},${loc.targetGrade},${loc.currentProduct},${loc.currentQty}\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `WMS_Location_Status_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // CSV 파일 로드
+    function importFromCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split("\n");
+        const importedLocs = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          const parts = line.split(",");
+          if (parts.length >= 4) {
+            importedLocs.push({
+              id: parts[0],
+              targetGrade: parts[1],
+              currentProduct: parts[2],
+              currentQty: parseInt(parts[3]) || 0
+            });
+          }
+        }
+
+        if (importedLocs.length > 0) {
+          locations = importedLocs;
+          saveState();
+          updateDashboardStats();
+          renderWarehouseMap();
+          renderDatabaseTable();
+          showToast(`📁 ${importedLocs.length}개의 로케이션 레코드가 정상적으로 시트로부터 로드되었습니다.`, "success");
+        } else {
+          showToast("⚠️ 올바르지 않은 구글 시트 CSV 양식입니다.", "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // 8. 간이 토스트 알림창 컴포넌트
+    function showToast(message, type = "info") {
+      let bgColor = "bg-indigo-600";
+      if (type === "success") bgColor = "bg-emerald-600";
+      if (type === "error") bgColor = "bg-red-600";
+
+      const toast = document.createElement("div");
+      toast.className = `fixed bottom-5 right-5 ${bgColor} text-white text-xs font-semibold px-5 py-3.5 rounded-xl shadow-lg z-50 transition transform translate-y-0 duration-300`;
+      toast.innerText = message;
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
